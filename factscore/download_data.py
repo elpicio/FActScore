@@ -5,6 +5,11 @@ import torch
 import tqdm
 import transformers
 
+DEFAULT_DATA_DIR = os.environ.get(
+    "FACTSCORE_DATA_DIR",
+    "/home/elp/project/llm_uncertainty/external/repos/FActScore/dataset",
+)
+
 
 def download_file(_id, dest, cache_dir):
     if os.path.exists(dest) or os.path.exists(os.path.join(cache_dir, dest)):
@@ -118,7 +123,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_dir',
                         type=str,
-                        default=".cache/factscore")
+                        default=DEFAULT_DATA_DIR)
     parser.add_argument('--model_dir',
                         type=str,
                         default=".cache/factscore")
@@ -147,4 +152,3 @@ if __name__ == '__main__':
     # move the files to the data directory
     subprocess.run(["mv demos %s" % args.data_dir], shell=True)
     subprocess.run(["mv enwiki-20230401.db %s" % args.data_dir], shell=True)
-

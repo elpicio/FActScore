@@ -56,6 +56,7 @@ api.key
 editing-data
 editing-demos
 data
+dataset/
 
 llama-7B
 inst-llama-7B

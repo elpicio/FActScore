@@ -13,11 +13,16 @@ from factscore.npm import NPM
 from factscore.openai_lm import OpenAIModel
 from factscore.retrieval import DocDB, Retrieval
 
+DEFAULT_DATA_DIR = os.environ.get(
+    "FACTSCORE_DATA_DIR",
+    "/home/elp/project/llm_uncertainty/external/repos/FActScore/dataset",
+)
+
 class FactScorer(object):
 
     def __init__(self,
                  model_name="retrieval+ChatGPT",
-                 data_dir=".cache/factscore",
+                 data_dir=DEFAULT_DATA_DIR,
                  model_dir=".cache/factscore",
                  cache_dir=".cache/factscore",
                  openai_key="api.key",
@@ -284,7 +289,7 @@ if __name__ == '__main__':
                         default="api.key")
     parser.add_argument('--data_dir',
                         type=str,
-                        default=".cache/factscore/")
+                        default=DEFAULT_DATA_DIR)
     parser.add_argument('--model_dir',
                         type=str,
                         default=".cache/factscore/")
@@ -363,4 +368,3 @@ if __name__ == '__main__':
     # Save out as a json file
     with open(args.input_path.replace(".jsonl", f"_factscore_output.json"), 'w') as f:
         f.write(json.dumps(out) + "\n")
-

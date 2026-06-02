@@ -35,6 +35,39 @@ pip install --upgrade factscore
 python -m spacy download en_core_web_sm
 ```
 
+### llm_uncertainty workspace fork
+
+This checkout is used as an external baseline inside
+`/home/elp/project/llm_uncertainty`. The local validated environment is
+`llm_uq_factscore` with Python 3.10 and the versions recorded in
+`requirements.txt`.
+
+Important local changes:
+
+- `requirements.txt` pins `torch==2.8.0+cu128`,
+  `transformers==4.57.6`, and `sentence-transformers==2.7.0`. This is required
+  for `gtr-t5-large` retrieval on the local RTX 5070 (`sm_120`). The original
+  package metadata used `torch<2.0`; this fork updates `pyproject.toml` to avoid
+  conflicting editable-install metadata.
+- The default FActScore data directory is
+  `/home/elp/project/llm_uncertainty/external/repos/FActScore/dataset`. The
+  current Wikipedia DB is expected at
+  `dataset/enwiki-20230401.db`; this fork does not rely on a
+  `.cache/factscore` symlink.
+- `factscore/openai_lm.py` loads the project `.env` and supports
+  OpenAI-compatible endpoints. The evaluator key and base URL are read in this
+  order: `FACTSCORE_OPENAI_API_KEY`, `CODEXAPIS_API_KEY`, `OPENAI_API_KEY`,
+  `GPTGOD_API_KEY`; and `FACTSCORE_OPENAI_BASE_URL`, `CODEXAPIS_BASE_URL`,
+  `OPENAI_API_BASE`, `OPENAI_BASE_URL`, `GPTGOD_BASE_URL`. The ChatGPT model is
+  read from `FACTSCORE_CHATGPT_MODEL`, `FACTSCORE_OPENAI_MODEL`,
+  `CODEXAPIS_EXTRACTOR_MODEL`, or `OPENAI_MODEL`.
+
+For this workspace, run FActScore commands in the isolated environment:
+
+```bash
+conda run -n llm_uq_factscore python -m factscore.factscorer ...
+```
+
 ## Download the data
 
 ```bash
@@ -46,11 +79,11 @@ This command does the following.
 2. Take the LLAMA 7B model and reconstruct Inst-LLAMA. This requires having access to HuggingFace weights of the LLAMA-7B model, which are added to the `--llama_7B_HF_path` flag. Follow [this guide](https://huggingface.co/docs/transformers/main/model_doc/llama) in order to obtain those weights. Skip the `--llama_7B_HF_path` if you would only like to use the ChatGPT version of FActScore.
 
 **Optional flags**:
-- `--data_dir`: directory to store the knowledge source and example data. `.cache/factscore` by default.
+- `--data_dir`: directory to store the knowledge source and example data. In this workspace fork it defaults to `/home/elp/project/llm_uncertainty/external/repos/FActScore/dataset`; upstream used `.cache/factscore`.
 - `--model_dir`: directory to store Inst-LLAMA weights. `.cache/factscore` by default.
 
 **Troubleshooting**:
-- If you get a `ERROR 429: Too Many Requests` error while downloading the DB file, please download the DB from [this Google Drive link](https://drive.google.com/drive/folders/1kFey69z8hGXScln01mVxrOhrqgM62X7I?usp=sharing) and place it under `--data_dir` (`.cache/factscore` by default).
+- If you get a `ERROR 429: Too Many Requests` error while downloading the DB file, please download the DB from [this Google Drive link](https://drive.google.com/drive/folders/1kFey69z8hGXScln01mVxrOhrqgM62X7I?usp=sharing) and place it under `--data_dir`.
 - If everything else fails, consider downloading the files manually from [this link](https://drive.google.com/drive/folders/1kFey69z8hGXScln01mVxrOhrqgM62X7I?usp=sharing) and placing them in `--data_dir` and `--model_dir`, see [`factscore/download_data.py`](factscore/download_data.py) for more details.
 
 
@@ -67,7 +100,7 @@ python -m factscore.factscorer --input_path {input_path} --model_name {estimator
 - `--openai_key`: File containing OpenAI API Key.
 
 **Optional flags**:
-- `--data_dir`: Directory containing knowledge source, etc. `.cache/factscore` by default.
+- `--data_dir`: Directory containing knowledge source, etc. In this workspace fork it defaults to `/home/elp/project/llm_uncertainty/external/repos/FActScore/dataset`; upstream used `.cache/factscore`.
 - `--model_dir`: Directory containing Inst-LLAMA weights. Skip if your `model_name` doesn't include `llama`. `.cache/factscore` by default.
 - `--cache_dir`: Directory containing cache from API/models. `.cache/factscore` by default.
 - `--use_atomic_facts`: If specified, it uses model-generated atomic facts released as part of our data instead of running the atomic fact generator. This will allow reproducing our results with no (or little if it still uses ChatGPT) cost. You can't specify it if you are running new model generations.
@@ -177,4 +210,3 @@ for fn in os.listdir(dirname):
         fn.split(".")[0], len(n_facts)*100/500, np.mean(n_facts), np.mean(chatgpt_fs)*100, np.mean(llama_fs)*100
     ))
 ```
-
