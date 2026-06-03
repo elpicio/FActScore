@@ -77,6 +77,18 @@ def _completion_model_name(default="text-davinci-003"):
     return _first_env("FACTSCORE_INSTRUCTGPT_MODEL") or default
 
 
+def _openai_timeout():
+    return float(os.environ.get("FACTSCORE_OPENAI_TIMEOUT", "60"))
+
+
+def _openai_max_retries():
+    return int(os.environ.get("FACTSCORE_OPENAI_MAX_RETRIES", "5"))
+
+
+def _openai_max_tokens():
+    return max(int(os.environ.get("FACTSCORE_OPENAI_MAX_TOKENS", "16384")), 16384)
+
+
 class OpenAIModel(LM):
 
     def __init__(self, model_name, cache_file=None, key_path="api.key"):
@@ -95,7 +107,7 @@ class OpenAIModel(LM):
         else:
             self.model = self.model_name
 
-    def _generate(self, prompt, max_sequence_length=2048, max_output_length=128):
+    def _generate(self, prompt, max_sequence_length=16384, max_output_length=16384):
         if self.add_n % self.save_interval == 0:
             self.save_cache()
         # return a tuple of string (generated text) and metadata (any format)
@@ -117,19 +129,24 @@ class OpenAIModel(LM):
         else:
             raise NotImplementedError()
 
-def call_ChatGPT(message, model_name="gpt-3.5-turbo", max_len=1024, temp=0.7, verbose=False):
+def call_ChatGPT(message, model_name="gpt-3.5-turbo", max_len=16384, temp=0.7, verbose=False):
     # call GPT-3 API until result is provided and then return it
     response = None
     received = False
     num_rate_errors = 0
+    max_retries = _openai_max_retries()
+    max_len = max(int(max_len), _openai_max_tokens())
     while not received:
         try:
             response = openai.ChatCompletion.create(model=model_name,
                                                     messages=message,
                                                     max_tokens=max_len,
-                                                    temperature=temp)
+                                                    temperature=temp,
+                                                    request_timeout=_openai_timeout())
+            if response["choices"][0]["message"]["content"] is None:
+                raise openai.error.OpenAIError("ChatCompletion response did not include message content.")
             received = True
-        except:
+        except Exception as exc:
             # print(message)
             num_rate_errors += 1
             error = sys.exc_info()[0]
@@ -137,17 +154,22 @@ def call_ChatGPT(message, model_name="gpt-3.5-turbo", max_len=1024, temp=0.7, ve
                 # something is wrong: e.g. prompt too long
                 logging.critical(f"InvalidRequestError\nPrompt passed in:\n\n{message}\n\n")
                 assert False
-            
-            logging.error("API error: %s (%d). Waiting %dsec" % (error, num_rate_errors, np.power(2, num_rate_errors)))
-            time.sleep(np.power(2, num_rate_errors))
+
+            if num_rate_errors >= max_retries:
+                raise exc
+
+            wait_seconds = min(60, int(np.power(2, num_rate_errors)))
+            logging.error("API error: %s (%d). Waiting %dsec" % (error, num_rate_errors, wait_seconds))
+            time.sleep(wait_seconds)
     return response
 
 
-def call_GPT3(prompt, model_name="text-davinci-003", max_len=512, temp=0.7, num_log_probs=0, echo=False, verbose=False):
+def call_GPT3(prompt, model_name="text-davinci-003", max_len=16384, temp=0.7, num_log_probs=0, echo=False, verbose=False):
     # call GPT-3 API until result is provided and then return it
     response = None
     received = False
     num_rate_errors = 0
+    max_len = max(int(max_len), _openai_max_tokens())
     while not received:
         try:
             response = openai.Completion.create(model=model_name,

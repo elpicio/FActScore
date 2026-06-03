@@ -61,12 +61,41 @@ Important local changes:
   `OPENAI_API_BASE`, `OPENAI_BASE_URL`, `GPTGOD_BASE_URL`. The ChatGPT model is
   read from `FACTSCORE_CHATGPT_MODEL`, `FACTSCORE_OPENAI_MODEL`,
   `CODEXAPIS_EXTRACTOR_MODEL`, or `OPENAI_MODEL`.
+- `factscore/openai_lm.py` also honors `FACTSCORE_OPENAI_TIMEOUT`,
+  `FACTSCORE_OPENAI_MAX_RETRIES`, and `FACTSCORE_OPENAI_MAX_TOKENS`.
+  The local minimum max-token budget is 16384, matching the project response
+  generation floor; lower environment values are raised to 16384. This avoids
+  unbounded waits on OpenAI-compatible endpoints that return empty content,
+  403, or timeout-like failures.
 
 For this workspace, run FActScore commands in the isolated environment:
 
 ```bash
 conda run -n llm_uq_factscore python -m factscore.factscorer ...
 ```
+
+For project Stage 2 long-form evaluation, prefer the checkpointed adapter in
+the parent repository instead of running the official CLI directly:
+
+```bash
+conda run -n llm_uq_factscore python \
+  /home/elp/project/llm_uncertainty/scripts/experiments/stage2_official_longform_eval.py factscore \
+  --run-dir /home/elp/project/llm_uncertainty/runs/stage_2_longform/factscore/qwen3-32b/20260519_042222_qwen3_32b_factscore_k5_sample200_max32768_logprobs \
+  --out-dir /home/elp/project/llm_uncertainty/runs/stage_2_longform_official_eval/<run_id>/factscore \
+  --limit-responses 50 \
+  --openai-max-tokens 16384 \
+  --max-workers 8 \
+  --dry-run
+```
+
+The adapter writes per-atomic-fact jobs, results, failures, labels, usage, and
+progress JSONL/JSON files, supports resume, and stops on permission/quota
+errors by default. This preserves the official retrieval + ChatGPT scoring
+logic while making the run auditable and restartable.
+`--max-workers` controls concurrent ChatGPT judge calls; the project adapter
+keeps local Wikipedia retrieval serialized to avoid shared sqlite, GTR encoder,
+and retrieval-cache races. Current CodexAPIs runs use `gpt-5.4-mini` through
+`FACTSCORE_OPENAI_MODEL` with a 16384 max-token floor.
 
 ## Download the data
 

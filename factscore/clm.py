@@ -31,7 +31,7 @@ class CLM(LM):
         self.model = convert_model_to_int8_on_gpu(self.model, device='cuda')
         self.tokenizer = LlamaTokenizer.from_pretrained(self.model_dir)
 
-    def _generate(self, prompts, max_sequence_length=2048, max_output_length=128,
+    def _generate(self, prompts, max_sequence_length=32768, max_output_length=16384,
                   end_if_newline=False, end_if_second_newline=False, verbose=False):
         is_single = type(prompts)==str
         if is_single:
@@ -78,4 +78,3 @@ class CLM(LM):
             return generations[0], scores[0]
         
         return generations, scores
-
